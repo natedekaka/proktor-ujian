@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const cfg = require('./config');
 const db = require('./db');
 const auth = require('./auth');
@@ -20,30 +21,51 @@ const MIME = {
   '.txt': 'text/plain; charset=utf-8',
 };
 
+// In-memory static file cache (helps scale for many concurrent clients)
+const staticCache = new Map(); // filePath -> { mtime, data, gz }
+
+function readCachedFile(filePath) {
+  const st = fs.statSync(filePath);
+  const cached = staticCache.get(filePath);
+  if (cached && cached.mtime === st.mtimeMs) return cached;
+  const data = fs.readFileSync(filePath);
+  const gz = zlib.gzipSync(data, { level: 6 });
+  const entry = { mtime: st.mtimeMs, data, gz };
+  staticCache.set(filePath, entry);
+  // keep cache bounded (simple LRU-ish: drop if too many)
+  if (staticCache.size > 200) {
+    const firstKey = staticCache.keys().next().value;
+    staticCache.delete(firstKey);
+  }
+  return entry;
+}
+
 function serveStatic(req, res, pathname) {
   const publicDir = path.join(process.cwd(), 'public');
   let filePath = path.join(publicDir, pathname === '/' ? 'index.html' : pathname);
-  // prevent traversal
   if (!filePath.startsWith(publicDir)) { res.writeHead(403); res.end(); return; }
-  fs.stat(filePath, (err, st) => {
-    if (err || !st.isFile()) {
-      // SPA fallback: index.html
-      filePath = path.join(publicDir, 'index.html');
-      fs.readFile(filePath, (e, data) => {
-        if (e) { res.writeHead(404); res.end('Not found'); return; }
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(data);
-      });
-      return;
-    }
-    const ext = path.extname(filePath).toLowerCase();
-    const ct = MIME[ext] || 'application/octet-stream';
-    fs.readFile(filePath, (e, data) => {
-      if (e) { res.writeHead(500); res.end(); return; }
-      res.writeHead(200, { 'Content-Type': ct });
-      res.end(data);
-    });
-  });
+
+  let entry;
+  try {
+    entry = readCachedFile(filePath);
+  } catch (err) {
+    // fallback to index.html for SPA routes
+    try { entry = readCachedFile(path.join(publicDir, 'index.html')); }
+    catch (e) { res.writeHead(404); res.end('Not found'); return; }
+  }
+
+  const ext = path.extname(filePath).toLowerCase();
+  const ct = MIME[ext] || 'application/octet-stream';
+  const acceptGzip = (req.headers['accept-encoding'] || '').includes('gzip');
+  const body = acceptGzip ? entry.gz : entry.data;
+  const headers = {
+    'Content-Type': ct,
+    'Content-Length': body.length,
+    'Cache-Control': ext === '.html' ? 'public, max-age=300' : 'public, max-age=31536000, immutable',
+  };
+  if (acceptGzip) headers['Content-Encoding'] = 'gzip';
+  res.writeHead(200, headers);
+  res.end(body);
 }
 
 async function handleApi(req, res, pathname) {
@@ -154,7 +176,6 @@ async function handleApi(req, res, pathname) {
     let rows = [];
     if (examId) rows = db.listSessions(Number(examId));
     else {
-      // all exams
       const exams = db.listExams();
       for (const e of exams) rows = rows.concat(db.listSessions(e.id).map(s => ({ ...s, exam_code: e.code, exam_title: e.title })));
     }
@@ -186,7 +207,7 @@ async function handleApi(req, res, pathname) {
     const name = (body.name || '').trim();
     if (!name) { safeJson(res, 400, { error: 'nama wajib' }); return; }
     const session = db.createSession({ exam_id: exam.id, nis: body.nis, name, kelas: body.kelas });
-    safeJson(res, 201, { session_id: session.id, exam: { code: exam.code, title: exam.title, form_url: exam.form_url, penalty: exam.penalty, max_violations: exam.max_violations, duration_min: exam.duration_min } });
+    safeJson(res, 200, { session_id: session.id, exam: { code: exam.code, title: exam.title, form_url: exam.form_url, penalty: exam.penalty, max_violations: exam.max_violations, duration_min: exam.duration_min } });
     return;
   }
 
@@ -198,7 +219,6 @@ async function handleApi(req, res, pathname) {
     if (!session || session.status !== 'active') { safeJson(res, 404, { error: 'sesi tidak aktif' }); return; }
     let body; try { body = JSON.parse(await readBody(req)); } catch { body = {}; }
     const result = db.addViolation(sid, body.type || 'unknown', body.detail || null);
-    // if max reached, abort
     if (result.max_reached) db.abortSession(sid, 'max_violations');
     safeJson(res, 200, { violations: result.violations, penalty_total: result.penalty_total, max_reached: result.max_reached, penalty: result.exam.penalty });
     return;
