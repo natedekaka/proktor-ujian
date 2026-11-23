@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — Proktor Ujian Sanaci</title>
+<link rel="stylesheet" href="/common.css">
+<style>
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .exam-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--panel2); }
+  .exam-row:last-child { border-bottom: none; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 700px) { .form-grid { grid-template-columns: 1fr; } }
+  .stat { font-size: 28px; font-weight: 700; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab { padding: 8px 14px; border-radius: 8px; background: var(--panel2); color: var(--text); border: none; }
+  .tab.active { background: var(--accent); }
+  .event-row { font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--panel2); }
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Login -->
+  <div id="loginView" class="card" style="max-width:420px;margin:60px auto;">
+    <h2>🔐 Login Admin</h2>
+    <p class="muted">Masukkan kata sandi admin.</p>
+    <label>Kata Sandi</label>
+    <input type="password" id="password" placeholder="••••••••">
+    <div class="mt"><button class="btn" id="loginBtn">Masuk</button></div>
+    <p id="loginErr" class="muted" style="color:var(--danger);margin-top:10px;"></p>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashView" class="hidden">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <img src="/img/logo-sman6.png" alt="Logo SMA Negeri 6 Cimahi" style="width:40px;height:40px;object-fit:contain;">
+        <h1 style="margin:0;">📋 Dashboard Ujian</h1>
+      </div>
+      <div class="row">
+        <a class="btn secondary" href="/">Beranda</a>
+        <button class="btn secondary" id="logoutBtn">Keluar</button>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="exams">Ujian</button>
+      <button class="tab" data-tab="create">Buat Ujian</button>
+      <button class="tab" data-tab="results">Hasil</button>
+    </div>
+
+    <!-- Exams tab -->
+    <div id="tab-exams" class="card">
+      <h3>Daftar Ujian</h3>
+      <div id="examList"></div>
+    </div>
+
+    <!-- Create tab -->
+    <div id="tab-create" class="card hidden">
+      <h3>Buat Ujian Baru</h3>
+      <div class="form-grid">
+        <div>
+          <label>Judul Ujian *</label>
+          <input id="c_title" placeholder="Contoh: UTS Informatika Kelas X">
+        </div>
+        <div>
+          <label>Link Google Form *</label>
+          <input id="c_form_url" placeholder="https://docs.google.com/forms/d/e/.../viewform">
+        </div>
+        <div>
+          <label>Durasi (menit, 0 = bebas)</label>
+          <input type="number" id="c_duration" value="90" min="0">
+        </div>
+        <div>
+          <label>Potongan per pelanggaran (poin)</label>
+          <input type="number" id="c_penalty" value="5" min="1">
+        </div>
+        <div>
+          <label>Maks pelanggaran sebelum auto-submit</label>
+          <input type="number" id="c_maxv" value="10" min="1">
+        </div>
+      </div>
+      <div class="mt"><button class="btn success" id="createBtn">Buat Ujian</button></div>
+      <p id="createMsg" class="muted mt"></p>
+    </div>
+
+    <!-- Results tab -->
+    <div id="tab-results" class="card hidden">
+      <h3>Hasil & Pelanggaran</h3>
+      <div class="row mb">
+        <div class="col">
+          <label>Pilih Ujian</label>
+          <select id="res_exam"></select>
+        </div>
+        <div style="align-self:flex-end;">
+          <button class="btn secondary" id="exportBtn">Export CSV</button>
+        </div>
+      </div>
+      <div id="sessionList"></div>
+      <div id="eventDetail" class="mt"></div>
+    </div>
+  </div>
+
+  <!-- Edit modal -->
+  <div id="editModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <h3>Edit Ujian</h3>
+      <input type="hidden" id="e_id">
+      <div class="form-grid">
+        <div>
+          <label>Judul *</label>
+          <input id="e_title">
+        </div>
+        <div>
+          <label>Link Google Form *</label>
+          <input id="e_form_url">
+        </div>
+        <div>
+          <label>Durasi (menit, 0 = bebas)</label>
+          <input type="number" id="e_duration" min="0">
+        </div>
+        <div>
+          <label>Potongan per pelanggaran (poin)</label>
+          <input type="number" id="e_penalty" min="1">
+        </div>
+        <div>
+          <label>Maks pelanggaran</label>
+          <input type="number" id="e_maxv" min="1">
+        </div>
+        <div>
+          <label>Status</label>
+          <select id="e_active">
+            <option value="1">Aktif</option>
+            <option value="0">Nonaktif</option>
+          </select>
+        </div>
+      </div>
+      <div class="mt row">
+        <button class="btn success" id="saveEditBtn">Simpan</button>
+        <button class="btn secondary" id="cancelEditBtn">Batal</button>
+      </div>
+      <p id="editMsg" class="muted mt"></p>
+    </div>
+  </div>
+</div>
+
+<script src="/admin.js"></script>
+</body>
+</html>
