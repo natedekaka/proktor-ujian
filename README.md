@@ -120,6 +120,15 @@ Diujikan dengan simulasi 1600 siswa bersamaan (buat sesi → heartbeat → seles
   node tools/loadtest.js http://<host>:9340 <KODE_UJIAN> 1600 60
   ```
 
+## Akses Publik (Produksi)
+
+Aplikasi dipublikasikan secara publik melalui **Tailscale Funnel** (HTTPS):
+
+- Siswa: `https://debian6-1.tailef18bd.ts.net/`
+- Admin: `https://debian6-1.tailef18bd.ts.net/admin.html`
+
+URL ini dapat diakses dari internet (HP siswa) tanpa VPN. Untuk 500 siswa, gunakan stagger start (gelombang) agar tidak terjadi thundering herd.
+
 ## Deploy di Debian (systemd)
 
 1. Clone:
