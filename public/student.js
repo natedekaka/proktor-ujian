@@ -15,6 +15,7 @@ let devtoolsInterval = null;
 let idleInterval = null;
 let lastActivity = Date.now();
 let idleOverlayShown = false;
+let fsSupportedGlobal = true;
 const LOCK_KEY = 'proktor_exam_lock';
 
 function api(path, opts = {}) {
@@ -49,14 +50,20 @@ async function startExam() {
   // request fullscreen first (user gesture)
   const fsEl = document.documentElement;
   let fsGranted = false;
+  let fsSupported = !!(fsEl.requestFullscreen || fsEl.webkitRequestFullscreen);
+  fsSupportedGlobal = fsSupported;
   try {
     if (fsEl.requestFullscreen) { await fsEl.requestFullscreen(); fsGranted = true; }
     else if (fsEl.webkitRequestFullscreen) { fsEl.webkitRequestFullscreen(); fsGranted = true; }
   } catch (e) { fsGranted = false; }
 
-  if (!fsGranted) {
+  if (fsSupported && !fsGranted) {
     err.textContent = 'Mode layar penuh ditolak/gagal. Izinkan fullscreen di browser lalu coba lagi.';
     return;
+  }
+  if (!fsSupported) {
+    // iOS Safari: fullscreen API tidak tersedia; lanjutkan dengan peringatan
+    console.warn('Fullscreen API tidak didukung (kemungkinan iOS).');
   }
   try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch {}
 
@@ -175,6 +182,8 @@ function detachDetectors() {
 
 function onFullscreenChange() {
   if (!examActive) return;
+  // Hanya berlaku jika browser mendukung Fullscreen API (bukan iOS Safari)
+  if (!fsSupportedGlobal) return;
   if (!document.fullscreenElement) {
     handleViolation('fullscreen_exit', 'Keluar dari mode layar penuh');
   }
@@ -273,7 +282,7 @@ let lastW = window.innerWidth, lastH = window.innerHeight;
 function onResize() {
   if (!examActive) return;
   const w = window.innerWidth, h = window.innerHeight;
-  if (!document.fullscreenElement) {
+  if (fsSupportedGlobal && !document.fullscreenElement) {
     handleViolation('resize', 'Jendela tidak dalam mode layar penuh');
   } else if (Math.abs(w - lastW) > 120 || Math.abs(h - lastH) > 120) {
     handleViolation('resize', 'Perubahan ukuran layar terdeteksi');
@@ -345,6 +354,15 @@ async function finishExam(reason) {
   const reasonText = reason === 'timeout' ? 'Waktu habis.' : (reason === 'max_violations' ? 'Terlalu banyak pelanggaran — ujian dihentikan otomatis.' : 'Ujian diselesaikan.');
   $('#resultMsg').textContent = reasonText;
 }
+
+// iOS detection note
+(function () {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const note = document.getElementById('iosNote');
+  if (isIOS && note) {
+    note.textContent = 'Pengguna iPhone/iPad: Safari tidak mendukung layar penuh penuh. Untuk pengalaman terbaik, buka menu Share → "Add to Home Screen", lalu jalankan dari ikon Home Screen (mode mandiri).';
+  }
+})();
 
 // prevent accidental navigation
 window.addEventListener('beforeunload', (e) => {

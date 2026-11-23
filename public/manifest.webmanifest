@@ -1,0 +1,16 @@
+{
+  "name": "Proktor Ujian Sanaci",
+  "short_name": "Proktor Ujian",
+  "description": "Pengawasan ujian berbasis Google Form",
+  "start_url": "/student.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/img/logo-sman6.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    }
+  ]
+}

@@ -2,8 +2,13 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ujian — Proktor Ujian Sanaci</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/img/logo-sman6.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Proktor Ujian">
 <link rel="stylesheet" href="/common.css">
 <style>
   body { overflow-x: hidden; overflow-y: auto; }
@@ -61,6 +66,7 @@
     </div>
     <p id="startErr" style="color:var(--danger);margin-top:12px;font-size:14px;"></p>
     <p class="muted" style="margin-top:14px;font-size:12px;">Pastikan browser mengizinkan mode layar penuh. Jangan tutup tab selama ujian.</p>
+    <p class="muted" style="margin-top:8px;font-size:12px;" id="iosNote"></p>
   </div>
 </div>
 
@@ -78,7 +84,7 @@
       <button class="finish-btn" id="finishBtn">Selesai</button>
     </div>
   </div>
-  <iframe id="examFrame" src="about:blank" allowfullscreen></iframe>
+  <iframe id="examFrame" src="about:blank" allowfullscreen scrolling="yes" style="-webkit-overflow-scrolling:touch;"></iframe>
 </div>
 
 <!-- Violation overlay -->
