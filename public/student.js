@@ -350,17 +350,6 @@ $('#finishBtn').addEventListener('click', () => {
   finishExam('manual');
 });
 
-$('#submitFinishBtn').addEventListener('click', () => {
-  if (!confirm('Pastikan Anda sudah klik Kirim di Google Form. Selesai ujian?')) return;
-  submitting = true;
-  violationCooldown = true;
-  const ov = document.getElementById('submittingOverlay');
-  if (ov) ov.style.display = 'flex';
-  setTimeout(() => {
-    if (examActive) finishExam('submitted');
-  }, 300);
-});
-
 function releaseLock(sessionId) {
   try {
     const existing = localStorage.getItem(LOCK_KEY);
