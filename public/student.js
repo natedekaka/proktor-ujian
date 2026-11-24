@@ -107,6 +107,9 @@ function beginExam() {
   $('#examTitle').textContent = exam.title;
   $('#startView').style.display = 'none';
 
+  const fbtn = document.getElementById('floatingFinishBtn');
+  if (fbtn) fbtn.style.display = 'block';
+
   // Deteksi submit Google Form: load kedua pada iframe = halaman konfirmasi
   let iframeLoadCount = 0;
   const frame = $('#examFrame');
@@ -350,16 +353,22 @@ $('#finishBtn').addEventListener('click', () => {
   finishExam('manual');
 });
 
-$('#submitFinishBtn').addEventListener('click', () => {
-  if (!confirm('Pastikan Anda sudah klik Kirim di Google Form. Selesai ujian?')) return;
+function doSubmitFinish() {
   submitting = true;
   violationCooldown = true;
   const ov = document.getElementById('submittingOverlay');
   if (ov) ov.style.display = 'flex';
+  try { $('#examFrame').style.pointerEvents = 'none'; } catch {}
   setTimeout(() => {
     if (examActive) finishExam('submitted');
   }, 300);
-});
+}
+
+$('#submitFinishBtn').addEventListener('click', doSubmitFinish);
+const floatingBtn = document.getElementById('floatingFinishBtn');
+if (floatingBtn) {
+  floatingBtn.addEventListener('click', doSubmitFinish);
+}
 
 function releaseLock(sessionId) {
   try {
@@ -377,6 +386,8 @@ async function finishExam(reason) {
   hideIdleOverlay();
   const sov = document.getElementById('submittingOverlay');
   if (sov) sov.style.display = 'none';
+  const fbtn = document.getElementById('floatingFinishBtn');
+  if (fbtn) fbtn.style.display = 'none';
   try { $('#examFrame').style.pointerEvents = ''; } catch {}
   try { releaseLock(session.session_id); } catch {}
   try { await api('/api/sessions/' + session.session_id + '/finish', { method: 'POST', body: JSON.stringify({ reason }) }); } catch {}
