@@ -105,7 +105,6 @@ function beginExam() {
   examActive = true;
   const exam = session.exam;
   $('#examTitle').textContent = exam.title;
-  $('#examFrame').src = embedUrl(exam.form_url);
   $('#startView').style.display = 'none';
 
   // Deteksi submit Google Form: load kedua pada iframe = halaman konfirmasi
@@ -116,13 +115,17 @@ function beginExam() {
     iframeLoadCount++;
     if (iframeLoadCount < 2) return;
     submitting = true;
-    // abaikan pelanggaran singkat saat submit
     violationCooldown = true;
-    setTimeout(() => { violationCooldown = false; }, 3000);
+    const ov = document.getElementById('submittingOverlay');
+    if (ov) ov.style.display = 'flex';
+    // cegah klik "Lihat akurasi" dengan menutupi iframe
+    frame.style.pointerEvents = 'none';
     setTimeout(() => {
       if (examActive) finishExam('submitted');
-    }, 1200);
+    }, 1000);
   });
+  // pasang src SETELAH listener agar load pertama tercatat
+  frame.src = embedUrl(exam.form_url);
   $('#examView').classList.add('active');
 
   // timer
@@ -361,6 +364,9 @@ async function finishExam(reason) {
   if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
   hideIdleOverlay();
+  const sov = document.getElementById('submittingOverlay');
+  if (sov) sov.style.display = 'none';
+  try { $('#examFrame').style.pointerEvents = ''; } catch {}
   try { releaseLock(session.session_id); } catch {}
   try { await api('/api/sessions/' + session.session_id + '/finish', { method: 'POST', body: JSON.stringify({ reason }) }); } catch {}
   try { if (document.fullscreenElement) document.exitFullscreen(); } catch {}
