@@ -330,9 +330,24 @@ $('#resumeFsBtn').addEventListener('click', async () => {
   $('#violationOverlay').classList.remove('active');
 });
 
+function showConfirm(message, onYes) {
+  const modal = document.getElementById('confirmModal');
+  const msg = document.getElementById('confirmMsg');
+  if (msg) msg.textContent = message;
+  if (modal) modal.style.display = 'flex';
+  const okBtn = document.getElementById('confirmOkBtn');
+  const cancelBtn = document.getElementById('confirmCancelBtn');
+  const cleanup = () => {
+    if (modal) modal.style.display = 'none';
+    if (okBtn) okBtn.onclick = null;
+    if (cancelBtn) cancelBtn.onclick = null;
+  };
+  if (okBtn) okBtn.onclick = () => { cleanup(); onYes(); };
+  if (cancelBtn) cancelBtn.onclick = () => { cleanup(); };
+}
+
 $('#finishBtn').addEventListener('click', () => {
-  if (!confirm('Selesai mengerjakan ujian?')) return;
-  finishExam('manual');
+  showConfirm('Selesai mengerjakan ujian?', () => finishExam('manual'));
 });
 
 function releaseLock(sessionId) {
