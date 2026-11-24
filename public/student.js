@@ -16,6 +16,7 @@ let idleInterval = null;
 let lastActivity = Date.now();
 let idleOverlayShown = false;
 let fsSupportedGlobal = true;
+let submitting = false;
 const LOCK_KEY = 'proktor_exam_lock';
 
 function api(path, opts = {}) {
@@ -106,6 +107,22 @@ function beginExam() {
   $('#examTitle').textContent = exam.title;
   $('#examFrame').src = embedUrl(exam.form_url);
   $('#startView').style.display = 'none';
+
+  // Deteksi submit Google Form: load kedua pada iframe = halaman konfirmasi
+  let iframeLoadCount = 0;
+  const frame = $('#examFrame');
+  frame.addEventListener('load', () => {
+    if (!examActive) return;
+    iframeLoadCount++;
+    if (iframeLoadCount < 2) return;
+    submitting = true;
+    // abaikan pelanggaran singkat saat submit
+    violationCooldown = true;
+    setTimeout(() => { violationCooldown = false; }, 3000);
+    setTimeout(() => {
+      if (examActive) finishExam('submitted');
+    }, 1200);
+  });
   $('#examView').classList.add('active');
 
   // timer
@@ -190,6 +207,7 @@ function onFullscreenChange() {
 }
 function onVisibilityChange() {
   if (!examActive) return;
+  if (submitting) return; // abaikan saat submit (Google Form membuka skor)
   if (document.hidden) handleViolation('tab_switch', 'Berpindah tab atau minimize');
 }
 function onContextMenu(e) {
@@ -237,7 +255,7 @@ function playViolationSound() {
 }
 
 async function handleViolation(type, detail) {
-  if (!examActive || violationCooldown) return;
+  if (!examActive || violationCooldown || submitting) return;
   playViolationSound();
   violationCooldown = true;
   setTimeout(() => { violationCooldown = false; }, 2000);
@@ -351,7 +369,7 @@ async function finishExam(reason) {
   $('#resultView').classList.add('active');
   $('#rViolations').textContent = violations;
   $('#rPenalty').textContent = penaltyTotal;
-  const reasonText = reason === 'timeout' ? 'Waktu habis.' : (reason === 'max_violations' ? 'Terlalu banyak pelanggaran — ujian dihentikan otomatis.' : 'Ujian diselesaikan.');
+  const reasonText = reason === 'timeout' ? 'Waktu habis.' : (reason === 'max_violations' ? 'Terlalu banyak pelanggaran — ujian dihentikan otomatis.' : (reason === 'submitted' ? 'Jawaban terkirim ke Google Form. Ujian selesai.' : 'Ujian diselesaikan.'));
   $('#resultMsg').textContent = reasonText;
 }
 
