@@ -17,6 +17,9 @@ let lastActivity = Date.now();
 let idleOverlayShown = false;
 let fsSupportedGlobal = true;
 const LOCK_KEY = 'proktor_exam_lock';
+function isMobileDevice() {
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+}
 
 function api(path, opts = {}) {
   return fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts })
@@ -152,7 +155,7 @@ function attachDetectors() {
   // multi-tab detection via storage
   window.addEventListener('storage', onStorageChange);
 
-  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const isTouch = isMobileDevice();
   // resize detection (desktop only; mobile keyboard triggers resize)
   if (!isTouch) window.addEventListener('resize', onResize);
 
@@ -175,7 +178,7 @@ function detachDetectors() {
   document.removeEventListener('cut', onCopyPaste);
   document.removeEventListener('keydown', onKeyDown);
   window.removeEventListener('storage', onStorageChange);
-  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const isTouch = isMobileDevice();
   if (!isTouch) window.removeEventListener('resize', onResize);
   ['mousemove','mousedown','keydown','touchstart','scroll'].forEach((ev) => document.removeEventListener(ev, resetActivity, true));
   if (devtoolsInterval) { clearInterval(devtoolsInterval); devtoolsInterval = null; }
@@ -196,19 +199,20 @@ function onVisibilityChange() {
 }
 function onContextMenu(e) {
   if (!examActive) return;
-  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const isTouch = isMobileDevice();
   if (isTouch) return; // hindari false positive di HP
   e.preventDefault();
   handleViolation('right_click', 'Klik kanan');
 }
 function onCopyPaste(e) {
   if (!examActive) return;
+  if (isMobileDevice()) return; // hindari false positive di HP
   e.preventDefault();
   handleViolation('copy_paste', 'Copy/Paste/Cut');
 }
 function onKeyDown(e) {
   if (!examActive) return;
-  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  const isTouch = isMobileDevice();
   if (isTouch) return; // hindari false positive di HP
   const key = (e.key || '').toUpperCase();
   const blocked = (key === 'F12') ||
@@ -288,9 +292,13 @@ let lastW = window.innerWidth, lastH = window.innerHeight;
 function onResize() {
   if (!examActive) return;
   const w = window.innerWidth, h = window.innerHeight;
+  // Abaikan perubahan tinggi saja (keyboard virtual di HP)
+  const widthChanged = Math.abs(w - lastW) > 120;
+  const heightChanged = Math.abs(h - lastH) > 120;
+  if (!widthChanged && heightChanged) { lastW = w; lastH = h; return; }
   if (fsSupportedGlobal && !document.fullscreenElement) {
     handleViolation('resize', 'Jendela tidak dalam mode layar penuh');
-  } else if (Math.abs(w - lastW) > 120 || Math.abs(h - lastH) > 120) {
+  } else if (widthChanged) {
     handleViolation('resize', 'Perubahan ukuran layar terdeteksi');
   }
   lastW = w; lastH = h;
