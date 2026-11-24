@@ -152,14 +152,15 @@ function attachDetectors() {
   // multi-tab detection via storage
   window.addEventListener('storage', onStorageChange);
 
-  // resize detection
-  window.addEventListener('resize', onResize);
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  // resize detection (desktop only; mobile keyboard triggers resize)
+  if (!isTouch) window.addEventListener('resize', onResize);
 
   // activity tracking
   ['mousemove','mousedown','keydown','touchstart','scroll'].forEach((ev) => document.addEventListener(ev, resetActivity, true));
 
-  // devtools heuristic
-  devtoolsInterval = setInterval(checkDevtools, 2000);
+  // devtools heuristic (desktop only; mobile toolbars cause false positives)
+  if (!isTouch) devtoolsInterval = setInterval(checkDevtools, 2000);
 
   // idle check
   idleInterval = setInterval(checkIdle, 5000);
@@ -174,7 +175,8 @@ function detachDetectors() {
   document.removeEventListener('cut', onCopyPaste);
   document.removeEventListener('keydown', onKeyDown);
   window.removeEventListener('storage', onStorageChange);
-  window.removeEventListener('resize', onResize);
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  if (!isTouch) window.removeEventListener('resize', onResize);
   ['mousemove','mousedown','keydown','touchstart','scroll'].forEach((ev) => document.removeEventListener(ev, resetActivity, true));
   if (devtoolsInterval) { clearInterval(devtoolsInterval); devtoolsInterval = null; }
   if (idleInterval) { clearInterval(idleInterval); idleInterval = null; }
@@ -194,6 +196,8 @@ function onVisibilityChange() {
 }
 function onContextMenu(e) {
   if (!examActive) return;
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  if (isTouch) return; // hindari false positive di HP
   e.preventDefault();
   handleViolation('right_click', 'Klik kanan');
 }
@@ -204,6 +208,8 @@ function onCopyPaste(e) {
 }
 function onKeyDown(e) {
   if (!examActive) return;
+  const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  if (isTouch) return; // hindari false positive di HP
   const key = (e.key || '').toUpperCase();
   const blocked = (key === 'F12') ||
     (e.ctrlKey && e.shiftKey && ['I', 'J', 'C', 'K'].includes(key)) ||
