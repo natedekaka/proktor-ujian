@@ -119,6 +119,7 @@ function enterExamView(exam, sessionId, startedAt, vCount, pTotal) {
   $('#examView').classList.add('active');
   const fsfb = document.getElementById('fsFinishBtn');
   if (fsfb) fsfb.style.display = 'block';
+  setTimeout(adjustExamPadding, 50);
 
   // timer based on started_at
   if (exam.duration_min && exam.duration_min > 0) {
@@ -387,6 +388,12 @@ function checkOrientation() {
   const landscape = window.innerWidth > window.innerHeight;
   ov.style.display = landscape ? 'flex' : 'none';
 }
+
+function adjustExamPadding() {
+  const tb = document.querySelector('.topbar-exam');
+  const ev = document.getElementById('examView');
+  if (tb && ev) ev.style.paddingTop = (tb.offsetHeight + 8) + 'px';
+}
 function onResize() {
   if (!examActive) return;
   const w = window.innerWidth, h = window.innerHeight;
@@ -404,6 +411,7 @@ function onResize() {
   }
   lastW = w; lastH = h;
   checkOrientation();
+  adjustExamPadding();
 }
 function resetActivity() { lastActivity = Date.now(); if (idleOverlayShown) hideIdleOverlay(); }
 function checkDevtools() {
