@@ -271,6 +271,11 @@ function onFullscreenChange() {
   if (!examActive) return;
   // Hanya berlaku jika browser mendukung Fullscreen API (bukan iOS Safari)
   if (!fsSupportedGlobal) return;
+  // Abaikan jika sedang rotasi layar
+  if (orientationChanging) return;
+  const w = window.innerWidth, h = window.innerHeight;
+  // jika dimensi swap (rotasi), abaikan
+  if (Math.abs(w - lastH) < 80 && Math.abs(h - lastW) < 80) return;
   if (!document.fullscreenElement) {
     handleViolation('fullscreen_exit', 'Keluar dari mode layar penuh');
   }
@@ -377,7 +382,16 @@ function onOrientationChange() {
     orientationChanging = false;
     lastW = window.innerWidth;
     lastH = window.innerHeight;
-  }, 1500);
+    // coba pulihkan fullscreen jika keluar karena rotasi
+    if (fsSupportedGlobal && !document.fullscreenElement) {
+      const fsEl = document.documentElement;
+      try {
+        if (fsEl.requestFullscreen) fsEl.requestFullscreen().catch(() => {});
+        else if (fsEl.webkitRequestFullscreen) fsEl.webkitRequestFullscreen();
+      } catch (e) {}
+    }
+    checkOrientation();
+  }, 2000);
   checkOrientation();
 }
 
