@@ -5,6 +5,12 @@ const $$ = (s) => Array.from(document.querySelectorAll(s));
 
 let exams = [];
 let examLevelFilter = 'Semua';
+let examStatusFilter = 'Semua';
+let examSearch = '';
+let examSortKey = 'id';
+let examSortDir = 'desc';
+let examPageSize = 10;
+let examPage = 1;
 
 async function api(path, opts = {}) {
   const res = await fetch(path, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...opts });
@@ -59,36 +65,44 @@ async function loadExams() {
 function renderExams() {
   const el = $('#examList');
   if (!exams.length) { el.innerHTML = '<p class="muted">Belum ada ujian.</p>'; return; }
-  const filtered = examLevelFilter === 'Semua' ? exams : exams.filter((e) => e.level === examLevelFilter);
-  el.innerHTML = `
-    <div class="row mb" style="align-items:center;">
-      <label style="margin:0;">Filter Tingkat:</label>
-      <select id="examLevelFilter" style="width:auto;">
-        <option value="Semua"${examLevelFilter === 'Semua' ? ' selected' : ''}>Semua</option>
-        <option value="X"${examLevelFilter === 'X' ? ' selected' : ''}>Kelas X</option>
-        <option value="XI"${examLevelFilter === 'XI' ? ' selected' : ''}>Kelas XI</option>
-        <option value="XII"${examLevelFilter === 'XII' ? ' selected' : ''}>Kelas XII</option>
-      </select>
-    </div>
-    <div style="overflow-x:auto;">
-    <table class="table" style="min-width:1040px;">
-      <thead><tr>
-        <th>Kode</th>
-        <th>Tingkat</th>
-        <th>Judul Ujian</th>
-        <th>Link Google Form</th>
-        <th>Durasi</th>
-        <th>Penalti</th>
-        <th>Maks</th>
-        <th>Status</th>
-        <th>Aksi</th>
-      </tr></thead>
-      <tbody>` + filtered.map((e) => `
+
+  // filter
+  const q = examSearch.trim().toLowerCase();
+  let filtered = exams.filter((e) => {
+    if (examLevelFilter !== 'Semua' && e.level !== examLevelFilter) return false;
+    if (examStatusFilter === 'Aktif' && !e.active) return false;
+    if (examStatusFilter === 'Nonaktif' && e.active) return false;
+    if (q && !String(e.title).toLowerCase().includes(q) && !String(e.code).toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  // sort
+  filtered.sort((a, b) => {
+    let va, vb;
+    if (examSortKey === 'active') { va = a.active ? 1 : 0; vb = b.active ? 1 : 0; }
+    else { va = a[examSortKey]; vb = b[examSortKey]; }
+    if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb || '').toLowerCase(); }
+    if (va < vb) return examSortDir === 'asc' ? -1 : 1;
+    if (va > vb) return examSortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  // pagination
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / examPageSize));
+  if (examPage > totalPages) examPage = totalPages;
+  if (examPage < 1) examPage = 1;
+  const startIdx = (examPage - 1) * examPageSize;
+  const pageItems = filtered.slice(startIdx, startIdx + examPageSize);
+
+  const sortIcon = (key) => examSortKey === key ? (examSortDir === 'asc' ? ' ▲' : ' ▼') : '';
+
+  const rowsHtml = pageItems.length ? pageItems.map((e) => `
         <tr>
           <td><b>${e.code}</b></td>
           <td><span class="badge">${escapeHtml(e.level || 'Semua')}</span></td>
           <td>${escapeHtml(e.title)}</td>
-          <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(e.form_url)}">${escapeHtml(e.form_url)}</td>
+          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(e.form_url)}">${escapeHtml(e.form_url)}</td>
           <td>${e.duration_min ? e.duration_min + ' mnt' : 'Bebas'}</td>
           <td>-${e.penalty}</td>
           <td>${e.max_violations}</td>
@@ -100,9 +114,107 @@ function renderExams() {
             <button class="btn danger" style="padding:4px 8px;font-size:12px;" data-del="${e.id}">Hapus</button>
           </td>
         </tr>
-      `).join('') + `</tbody></table></div>`;
-  const filterSel = document.getElementById('examLevelFilter');
-  if (filterSel) filterSel.onchange = () => { examLevelFilter = filterSel.value; renderExams(); };
+      `).join('') : '<tr><td colspan="9" class="muted" style="text-align:center;">Tidak ada ujian sesuai filter.</td></tr>';
+
+  el.innerHTML = `
+    <div class="row mb" style="align-items:center;gap:10px;flex-wrap:wrap;">
+      <input id="examSearch" placeholder="Cari judul/kode..." value="${escapeHtml(examSearch)}" style="max-width:220px;">
+      <label style="margin:0;">Tingkat:</label>
+      <select id="examLevelFilter" style="width:auto;">
+        <option value="Semua"${examLevelFilter === 'Semua' ? ' selected' : ''}>Semua</option>
+        <option value="X"${examLevelFilter === 'X' ? ' selected' : ''}>Kelas X</option>
+        <option value="XI"${examLevelFilter === 'XI' ? ' selected' : ''}>Kelas XI</option>
+        <option value="XII"${examLevelFilter === 'XII' ? ' selected' : ''}>Kelas XII</option>
+      </select>
+      <label style="margin:0;">Status:</label>
+      <select id="examStatusFilter" style="width:auto;">
+        <option value="Semua"${examStatusFilter === 'Semua' ? ' selected' : ''}>Semua</option>
+        <option value="Aktif"${examStatusFilter === 'Aktif' ? ' selected' : ''}>Aktif</option>
+        <option value="Nonaktif"${examStatusFilter === 'Nonaktif' ? ' selected' : ''}>Nonaktif</option>
+      </select>
+      <label style="margin:0;">Per hal:</label>
+      <select id="examPageSize" style="width:auto;">
+        ${[10,25,50].map(n => '<option value="' + n + '"' + (examPageSize===n ? ' selected' : '') + '>' + n + '</option>').join('')}
+      </select>
+      <span class="muted" style="margin-left:auto;">Menampilkan ${pageItems.length} dari ${total} ujian</span>
+    </div>
+    <div style="overflow-x:auto;">
+    <table class="table" style="min-width:1080px;">
+      <thead><tr>
+        <th data-sort="code" style="cursor:pointer;">Kode${sortIcon('code')}</th>
+        <th data-sort="level" style="cursor:pointer;">Tingkat${sortIcon('level')}</th>
+        <th data-sort="title" style="cursor:pointer;">Judul Ujian${sortIcon('title')}</th>
+        <th>Link Google Form</th>
+        <th data-sort="duration_min" style="cursor:pointer;">Durasi${sortIcon('duration_min')}</th>
+        <th data-sort="penalty" style="cursor:pointer;">Penalti${sortIcon('penalty')}</th>
+        <th data-sort="max_violations" style="cursor:pointer;">Maks${sortIcon('max_violations')}</th>
+        <th data-sort="active" style="cursor:pointer;">Status${sortIcon('active')}</th>
+        <th>Aksi</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody></table></div>
+    <div class="row mt" style="align-items:center;justify-content:space-between;">
+      <button class="btn secondary" id="examPrevPage" ${examPage<=1?'disabled':''}>◀ Prev</button>
+      <span class="muted">Halaman ${examPage} / ${totalPages}</span>
+      <button class="btn secondary" id="examNextPage" ${examPage>=totalPages?'disabled':''}>Next ▶</button>
+    </div>`;
+
+  // events
+  const searchInput = document.getElementById('examSearch');
+  if (searchInput) {
+    searchInput.oninput = () => { examSearch = searchInput.value; examPage = 1; renderExams(); };
+    // keep focus
+    setTimeout(() => { searchInput.focus(); const v = searchInput.value; searchInput.value = ''; searchInput.value = v; }, 0);
+  }
+  const levelSel = document.getElementById('examLevelFilter');
+  if (levelSel) levelSel.onchange = () => { examLevelFilter = levelSel.value; examPage = 1; renderExams(); };
+  const statusSel = document.getElementById('examStatusFilter');
+  if (statusSel) statusSel.onchange = () => { examStatusFilter = statusSel.value; examPage = 1; renderExams(); };
+  const sizeSel = document.getElementById('examPageSize');
+  if (sizeSel) sizeSel.onchange = () => { examPageSize = parseInt(sizeSel.value, 10); examPage = 1; renderExams(); };
+  const prevBtn = document.getElementById('examPrevPage');
+  if (prevBtn) prevBtn.onclick = () => { if (examPage > 1) { examPage--; renderExams(); } };
+  const nextBtn = document.getElementById('examNextPage');
+  if (nextBtn) nextBtn.onclick = () => { if (examPage < totalPages) { examPage++; renderExams(); } };
+  el.querySelectorAll('th[data-sort]').forEach((th) => {
+    th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      if (examSortKey === key) examSortDir = examSortDir === 'asc' ? 'desc' : 'asc';
+      else { examSortKey = key; examSortDir = 'asc'; }
+      renderExams();
+    });
+  });
+  // re-bind action buttons
+  el.querySelectorAll('[data-toggle]').forEach((b) => b.addEventListener('click', async () => {
+    const id = b.dataset.toggle; const active = b.dataset.active === '1' ? 0 : 1;
+    await api('/api/admin/exams/' + id, { method: 'PUT', body: JSON.stringify({ active }) });
+    loadExams();
+  }));
+  el.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', async () => {
+    $$('.tab').forEach((x) => x.classList.remove('active'));
+    const t = $$('.tab').find((x) => x.dataset.tab === 'results'); t.classList.add('active');
+    ['exams','create','results'].forEach((n) => document.getElementById('tab-'+n).classList.toggle('hidden', n !== 'results'));
+    $('#res_exam').value = b.dataset.view;
+    loadSessions();
+  }));
+  el.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm('Hapus permanen ujian ini beserta semua data sesinya?')) return;
+    await api('/api/admin/exams/' + b.dataset.del, { method: 'DELETE' });
+    loadExams();
+  }));
+  el.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => {
+    const exam = exams.find((x) => String(x.id) === String(b.dataset.edit));
+    if (!exam) return;
+    $('#e_id').value = exam.id;
+    $('#e_title').value = exam.title;
+    $('#e_form_url').value = exam.form_url;
+    $('#e_duration').value = exam.duration_min;
+    $('#e_penalty').value = exam.penalty;
+    $('#e_maxv').value = exam.max_violations;
+    $('#e_level').value = exam.level || 'Semua';
+    $('#e_active').value = exam.active ? '1' : '0';
+    $('#editMsg').textContent = '';
+    $('#editModal').classList.remove('hidden');
+  }));
   el.querySelectorAll('[data-toggle]').forEach((b) => b.addEventListener('click', async () => {
     const id = b.dataset.toggle; const active = b.dataset.active === '1' ? 0 : 1;
     await api('/api/admin/exams/' + id, { method: 'PUT', body: JSON.stringify({ active }) });
