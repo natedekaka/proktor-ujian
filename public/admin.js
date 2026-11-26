@@ -150,7 +150,7 @@ function renderExams() {
       <span class="muted" style="margin-left:auto;">Menampilkan ${pageItems.length} dari ${total} ujian</span>
     </div>
     <div style="overflow-x:auto;">
-    <table class="table" style="min-width:1080px;">
+    <table class="table" style="min-width:880px;">
       <thead><tr>
         <th data-sort="code" style="cursor:pointer;">Kode${sortIcon('code')}</th>
         <th data-sort="level" style="cursor:pointer;">Tingkat${sortIcon('level')}</th>
