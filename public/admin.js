@@ -5,6 +5,9 @@ const $$ = (s) => Array.from(document.querySelectorAll(s));
 
 let exams = [];
 let examLevelFilter = 'Semua';
+let resExamSearch = '';
+let resSessionSearch = '';
+let resSessionStatus = 'Semua';
 let examStatusFilter = 'Semua';
 let examSearch = '';
 let examSortKey = 'id';
@@ -27,7 +30,15 @@ async function checkAuth() {
 }
 
 function showLogin() { $('#loginView').classList.remove('hidden'); $('#dashView').classList.add('hidden'); }
-function showDash() { $('#loginView').classList.add('hidden'); $('#dashView').classList.remove('hidden'); loadExams(); }
+function showDash() { $('#loginView').classList.add('hidden'); $('#dashView').classList.remove('hidden'); loadExams();
+  // results search/filter listeners
+  const resSearch = document.getElementById('res_exam_search');
+  if (resSearch) resSearch.oninput = () => { resExamSearch = resSearch.value; populateExamSelect(); };
+  const sessSearch = document.getElementById('res_session_search');
+  if (sessSearch) sessSearch.oninput = () => { resSessionSearch = sessSearch.value; loadSessions(); };
+  const sessStatus = document.getElementById('res_session_status');
+  if (sessStatus) sessStatus.onchange = () => { resSessionStatus = sessStatus.value; loadSessions(); };
+}
 
 $('#loginBtn').addEventListener('click', async () => {
   $('#loginErr').textContent = '';
@@ -253,19 +264,32 @@ function populateExamSelect() {
   const sel = $('#res_exam');
   if (!sel) return;
   const cur = sel.value;
-  sel.innerHTML = exams.map((e) => `<option value="${e.id}">${escapeHtml(e.title)} (${e.code})</option>`).join('');
-  if (cur) sel.value = cur;
+  const q = resExamSearch.trim().toLowerCase();
+  const filtered = q ? exams.filter((e) => String(e.title).toLowerCase().includes(q) || String(e.code).toLowerCase().includes(q)) : exams;
+  sel.innerHTML = filtered.map((e) => `<option value="${e.id}">${escapeHtml(e.title)} (${e.code})</option>`).join('');
+  if (cur && filtered.some((e) => String(e.id) === String(cur))) sel.value = cur;
+  else if (filtered.length) sel.value = filtered[0].id;
   sel.onchange = loadSessions;
-  if (exams.length) loadSessions();
+  if (filtered.length) loadSessions();
+  else { $('#sessionList').innerHTML = '<p class="muted">Tidak ada ujian sesuai pencarian.</p>'; }
 }
 
 async function loadSessions() {
   const id = $('#res_exam').value;
   if (!id) return;
   const d = await api('/api/admin/exams/' + id + '/sessions');
-  const sessions = d.sessions || [];
+  let sessions = d.sessions || [];
+  // filter sesi
+  const q = resSessionSearch.trim().toLowerCase();
+  if (q) sessions = sessions.filter((s) => String(s.nis || '').toLowerCase().includes(q) || String(s.name || '').toLowerCase().includes(q) || String(s.kelas || '').toLowerCase().includes(q));
+  if (resSessionStatus !== 'Semua') sessions = sessions.filter((s) => s.status === resSessionStatus);
+
   const el = $('#sessionList');
-  if (!sessions.length) { el.innerHTML = '<p class="muted">Belum ada sesi.</p>'; return; }
+  const totalViol = sessions.reduce((a, s) => a + (s.violations || 0), 0);
+  const totalPen = sessions.reduce((a, s) => a + (s.penalty_total || 0), 0);
+  const summary = document.getElementById('res_session_summary');
+  if (summary) summary.textContent = `Menampilkan ${sessions.length} sesi · Pelanggaran: ${totalViol} · Potongan: ${totalPen}`;
+  if (!sessions.length) { el.innerHTML = '<p class="muted">Tidak ada sesi sesuai filter.</p>'; return; }
   el.innerHTML = `<table class="table"><thead><tr>
     <th>NIS</th><th>Nama</th><th>Kelas</th><th>Mulai</th><th>Selesai</th><th>Pelanggaran</th><th>Potongan</th><th>Status</th><th></th>
   </tr></thead><tbody>` + sessions.map((s) => `

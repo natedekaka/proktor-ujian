@@ -96,7 +96,11 @@
     <!-- Results tab -->
     <div id="tab-results" class="card hidden">
       <h3>Hasil & Pelanggaran</h3>
-      <div class="row mb">
+      <div class="row mb" style="align-items:end;gap:10px;flex-wrap:wrap;">
+        <div class="col" style="max-width:260px;">
+          <label>Cari Ujian</label>
+          <input id="res_exam_search" placeholder="Judul/kode ujian...">
+        </div>
         <div class="col">
           <label>Pilih Ujian</label>
           <select id="res_exam"></select>
@@ -104,6 +108,22 @@
         <div style="align-self:flex-end;">
           <button class="btn secondary" id="exportBtn">Export CSV</button>
         </div>
+      </div>
+      <div class="row mb" style="align-items:end;gap:10px;flex-wrap:wrap;">
+        <div class="col" style="max-width:260px;">
+          <label>Cari Siswa</label>
+          <input id="res_session_search" placeholder="NIS/nama/kelas...">
+        </div>
+        <div style="width:auto;">
+          <label>Status Sesi</label>
+          <select id="res_session_status" style="width:auto;">
+            <option value="Semua">Semua</option>
+            <option value="active">Aktif</option>
+            <option value="completed">Selesai</option>
+            <option value="aborted">Dihentikan</option>
+          </select>
+        </div>
+        <span class="muted" id="res_session_summary" style="align-self:flex-end;margin-left:auto;"></span>
       </div>
       <div id="sessionList"></div>
       <div id="eventDetail" class="mt"></div>
