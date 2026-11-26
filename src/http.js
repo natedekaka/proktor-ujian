@@ -218,7 +218,7 @@ async function handleApi(req, res, pathname) {
     const name = (body.name || '').trim();
     if (!name) { safeJson(res, 400, { error: 'nama wajib' }); return; }
     const session = db.createSession({ exam_id: exam.id, nis: body.nis, name, kelas: body.kelas });
-    safeJson(res, 200, { session_id: session.id, exam: { code: exam.code, title: exam.title, form_url: exam.form_url, penalty: exam.penalty, max_violations: exam.max_violations, duration_min: exam.duration_min } });
+    safeJson(res, 200, { session_id: session.id, started_at: session.started_at, exam: { code: exam.code, title: exam.title, form_url: exam.form_url, penalty: exam.penalty, max_violations: exam.max_violations, duration_min: exam.duration_min } });
     return;
   }
 
@@ -243,6 +243,19 @@ async function handleApi(req, res, pathname) {
     if (!session) { safeJson(res, 404, { error: 'not found' }); return; }
     db.heartbeat(sid);
     safeJson(res, 200, { ok: true, status: session.status });
+    return;
+  }
+
+  // get session status
+  m = pathname.match(/^\/api\/sessions\/(\d+)$/);
+  if (m && method === 'GET') {
+    const session = db.getSession(Number(m[1]));
+    if (!session) { safeJson(res, 404, { error: 'not found' }); return; }
+    const exam = db.getExam(session.exam_id);
+    safeJson(res, 200, {
+      session: { id: session.id, exam_id: session.exam_id, nis: session.nis, name: session.name, kelas: session.kelas, started_at: session.started_at, ended_at: session.ended_at, violations: session.violations, penalty_total: session.penalty_total, status: session.status, finish_reason: session.finish_reason },
+      exam: exam ? { code: exam.code, title: exam.title, form_url: exam.form_url, penalty: exam.penalty, max_violations: exam.max_violations, duration_min: exam.duration_min, active: exam.active } : null,
+    });
     return;
   }
 

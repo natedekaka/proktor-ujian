@@ -17,6 +17,7 @@ let lastActivity = Date.now();
 let idleOverlayShown = false;
 let fsSupportedGlobal = true;
 const LOCK_KEY = 'proktor_exam_lock';
+const SESSION_KEY = 'proktor_session';
 function isMobileDevice() {
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 }
@@ -82,42 +83,50 @@ async function startExam() {
       }),
     });
     session = data;
-    violations = 0; penaltyTotal = 0;
-    beginExam();
+    // fullscreen already requested above
+    try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); } catch {}
+    enterExamView(data.exam, data.session_id, data.started_at, 0, 0);
   } catch (e) {
     err.textContent = 'Gagal memulai: ' + e.message;
     try { document.exitFullscreen(); } catch {}
   }
 }
 
-function beginExam() {
+function enterExamView(exam, sessionId, startedAt, vCount, pTotal) {
+  session = { session_id: sessionId, exam };
+  violations = vCount || 0;
+  penaltyTotal = pTotal || 0;
+  $('#vCount').textContent = violations;
+  $('#vPenalty').textContent = penaltyTotal;
+
   // multi-tab lock
   const lockVal = localStorage.getItem(LOCK_KEY);
   const now = Date.now();
   if (lockVal) {
     const [sid, ts] = lockVal.split('|');
-    if (sid && sid !== String(session.session_id) && now - Number(ts) < 60000) {
+    if (sid && sid !== String(sessionId) && now - Number(ts) < 60000) {
       try { document.exitFullscreen(); } catch {}
       alert('Ujian sudah berjalan di tab/jendela lain. Tutup tab lain lalu coba lagi.');
       return;
     }
   }
-  localStorage.setItem(LOCK_KEY, session.session_id + '|' + now);
+  localStorage.setItem(LOCK_KEY, sessionId + '|' + now);
 
   examActive = true;
-  const exam = session.exam;
   $('#examTitle').textContent = exam.title;
-  $('#examFrame').src = embedUrl(exam.form_url);
   $('#startView').style.display = 'none';
   $('#examView').classList.add('active');
 
-  // timer
+  // timer based on started_at
   if (exam.duration_min && exam.duration_min > 0) {
-    endTime = Date.now() + exam.duration_min * 60 * 1000;
+    const startMs = startedAt ? new Date(startedAt).getTime() : Date.now();
+    endTime = startMs + exam.duration_min * 60 * 1000;
+    if (endTime <= Date.now()) { finishExam('timeout'); return; }
     timerInterval = setInterval(updateTimer, 1000);
     updateTimer();
   } else {
     $('#timer').textContent = 'Tanpa batas';
+    endTime = null;
   }
 
   // heartbeat
@@ -127,7 +136,67 @@ function beginExam() {
     try { localStorage.setItem(LOCK_KEY, session.session_id + '|' + Date.now()); } catch {}
   }, 30000);
 
+  // persist session for refresh resume
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+      session_id: sessionId,
+      exam,
+      started_at: startedAt || new Date().toISOString(),
+      violations,
+      penalty_total: penaltyTotal,
+    }));
+  } catch {}
+
   attachDetectors();
+
+  // set iframe src after listener
+  const frame = $('#examFrame');
+  let iframeLoadCount = 0;
+  frame.addEventListener('load', () => {
+    if (!examActive) return;
+    iframeLoadCount++;
+    // (auto-detect disabled per Option A; no-op)
+  });
+  frame.src = embedUrl(exam.form_url);
+
+  // attempt fullscreen
+  requestFsSafe();
+}
+
+function requestFsSafe() {
+  const fsEl = document.documentElement;
+  if (fsEl.requestFullscreen) {
+    fsEl.requestFullscreen().then(() => {}).catch(() => { showResumeFsOverlay(); });
+  } else if (fsEl.webkitRequestFullscreen) {
+    try { fsEl.webkitRequestFullscreen(); } catch (e) { showResumeFsOverlay(); }
+  } else {
+    showResumeFsOverlay();
+  }
+}
+
+function showResumeFsOverlay() {
+  let ov = document.getElementById('resumeFsOverlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'resumeFsOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:250;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;color:#fff;text-align:center;padding:20px;';
+    ov.innerHTML = '<div><div style="font-size:40px;margin-bottom:8px;">📱</div><div style="font-size:18px;margin-bottom:12px;">Klik untuk kembali ke layar penuh</div><button class="btn success" id="resumeFsBtn2">Lanjutkan (Layar Penuh)</button></div>';
+    document.body.appendChild(ov);
+    document.getElementById('resumeFsBtn2').addEventListener('click', async () => {
+      const fsEl = document.documentElement;
+      try {
+        if (fsEl.requestFullscreen) await fsEl.requestFullscreen();
+        else if (fsEl.webkitRequestFullscreen) fsEl.webkitRequestFullscreen();
+      } catch {}
+      ov.style.display = 'none';
+    });
+  } else {
+    ov.style.display = 'flex';
+  }
+}
+
+function beginExam() {
+  // handled in startExam -> create session -> enterExamView
 }
 
 function updateTimer() {
@@ -373,6 +442,7 @@ async function finishExam(reason) {
   if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
   hideIdleOverlay();
   try { releaseLock(session.session_id); } catch {}
+  try { sessionStorage.removeItem(SESSION_KEY); } catch {}
   try { await api('/api/sessions/' + session.session_id + '/finish', { method: 'POST', body: JSON.stringify({ reason }) }); } catch {}
   try { if (document.fullscreenElement) document.exitFullscreen(); } catch {}
   $('#violationOverlay').classList.remove('active');
@@ -382,6 +452,34 @@ async function finishExam(reason) {
   $('#rPenalty').textContent = penaltyTotal;
   const reasonText = reason === 'timeout' ? 'Waktu habis.' : (reason === 'max_violations' ? 'Terlalu banyak pelanggaran — ujian dihentikan otomatis.' : 'Ujian diselesaikan.');
   $('#resultMsg').textContent = reasonText;
+}
+
+async function tryResume() {
+  let saved = null;
+  try { saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null'); } catch {}
+  if (!saved || !saved.session_id) return;
+  try {
+    const data = await api('/api/sessions/' + saved.session_id);
+    if (data.session && data.session.status === 'active') {
+      enterExamView(data.exam, data.session.id, data.session.started_at, data.session.violations, data.session.penalty_total);
+      return;
+    }
+    // finished/aborted
+    sessionStorage.removeItem(SESSION_KEY);
+    showResultScreen(data.session);
+  } catch (e) {
+    sessionStorage.removeItem(SESSION_KEY);
+  }
+}
+
+function showResultScreen(sess) {
+  $('#startView').style.display = 'none';
+  $('#examView').classList.remove('active');
+  $('#resultView').classList.add('active');
+  $('#rViolations').textContent = sess ? sess.violations : 0;
+  $('#rPenalty').textContent = sess ? sess.penalty_total : 0;
+  const msg = sess && sess.status === 'aborted' ? 'Ujian dihentikan otomatis.' : 'Ujian selesai.';
+  $('#resultMsg').textContent = msg;
 }
 
 // iOS detection note
@@ -397,3 +495,6 @@ async function finishExam(reason) {
 window.addEventListener('beforeunload', (e) => {
   if (examActive) { e.preventDefault(); e.returnValue = ''; }
 });
+
+// auto-resume if session saved
+tryResume();
