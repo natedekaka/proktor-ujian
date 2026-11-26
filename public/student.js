@@ -117,6 +117,8 @@ function enterExamView(exam, sessionId, startedAt, vCount, pTotal) {
   $('#examTitle').textContent = exam.title;
   $('#startView').style.display = 'none';
   $('#examView').classList.add('active');
+  const fsfb = document.getElementById('fsFinishBtn');
+  if (fsfb) fsfb.style.display = 'block';
 
   // timer based on started_at
   if (exam.duration_min && exam.duration_min > 0) {
@@ -442,6 +444,13 @@ $('#finishBtn').addEventListener('click', () => {
   showConfirm('Selesai mengerjakan ujian?', () => finishExam('manual'));
 });
 
+const fsFinishBtn = document.getElementById('fsFinishBtn');
+if (fsFinishBtn) {
+  fsFinishBtn.addEventListener('click', () => {
+    showConfirm('Selesai mengerjakan ujian?', () => finishExam('manual'));
+  });
+}
+
 function releaseLock(sessionId) {
   try {
     const existing = localStorage.getItem(LOCK_KEY);
@@ -462,6 +471,8 @@ async function finishExam(reason) {
   try { if (document.fullscreenElement) document.exitFullscreen(); } catch {}
   $('#violationOverlay').classList.remove('active');
   $('#examView').classList.remove('active');
+  const fsfb = document.getElementById('fsFinishBtn');
+  if (fsfb) fsfb.style.display = 'none';
   $('#resultView').classList.add('active');
   $('#rViolations').textContent = violations;
   $('#rPenalty').textContent = penaltyTotal;
