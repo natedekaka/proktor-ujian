@@ -151,6 +151,7 @@ function enterExamView(exam, sessionId, startedAt, vCount, pTotal) {
   } catch {}
 
   attachDetectors();
+  checkOrientation();
 
   // set iframe src after listener
   const frame = $('#examFrame');
@@ -371,6 +372,15 @@ function onOrientationChange() {
     lastW = window.innerWidth;
     lastH = window.innerHeight;
   }, 1500);
+  checkOrientation();
+}
+
+function checkOrientation() {
+  const ov = document.getElementById('orientationOverlay');
+  if (!ov) return;
+  if (!examActive) { ov.style.display = 'none'; return; }
+  const landscape = window.innerWidth > window.innerHeight;
+  ov.style.display = landscape ? 'flex' : 'none';
 }
 function onResize() {
   if (!examActive) return;
@@ -388,6 +398,7 @@ function onResize() {
     handleViolation('resize', 'Perubahan ukuran layar terdeteksi');
   }
   lastW = w; lastH = h;
+  checkOrientation();
 }
 function resetActivity() { lastActivity = Date.now(); if (idleOverlayShown) hideIdleOverlay(); }
 function checkDevtools() {
@@ -465,6 +476,8 @@ async function finishExam(reason) {
   if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
   hideIdleOverlay();
+  const oov = document.getElementById('orientationOverlay');
+  if (oov) oov.style.display = 'none';
   try { releaseLock(session.session_id); } catch {}
   try { sessionStorage.removeItem(SESSION_KEY); } catch {}
   try { await api('/api/sessions/' + session.session_id + '/finish', { method: 'POST', body: JSON.stringify({ reason }) }); } catch {}
