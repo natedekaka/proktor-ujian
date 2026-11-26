@@ -16,6 +16,7 @@ let idleInterval = null;
 let lastActivity = Date.now();
 let idleOverlayShown = false;
 let fsSupportedGlobal = true;
+let orientationChanging = false;
 const LOCK_KEY = 'proktor_exam_lock';
 const SESSION_KEY = 'proktor_session';
 function isMobileDevice() {
@@ -227,6 +228,8 @@ function attachDetectors() {
   const isTouch = isMobileDevice();
   // resize detection (desktop only; mobile keyboard triggers resize)
   if (!isTouch) window.addEventListener('resize', onResize);
+  // orientation change: ignore resize during rotation
+  window.addEventListener('orientationchange', onOrientationChange);
 
   // activity tracking
   ['mousemove','mousedown','keydown','touchstart','scroll'].forEach((ev) => document.addEventListener(ev, resetActivity, true));
@@ -249,6 +252,7 @@ function detachDetectors() {
   window.removeEventListener('storage', onStorageChange);
   const isTouch = isMobileDevice();
   if (!isTouch) window.removeEventListener('resize', onResize);
+  window.removeEventListener('orientationchange', onOrientationChange);
   ['mousemove','mousedown','keydown','touchstart','scroll'].forEach((ev) => document.removeEventListener(ev, resetActivity, true));
   if (devtoolsInterval) { clearInterval(devtoolsInterval); devtoolsInterval = null; }
   if (idleInterval) { clearInterval(idleInterval); idleInterval = null; }
@@ -358,9 +362,20 @@ function onStorageChange(e) {
   }
 }
 let lastW = window.innerWidth, lastH = window.innerHeight;
+function onOrientationChange() {
+  orientationChanging = true;
+  setTimeout(() => {
+    orientationChanging = false;
+    lastW = window.innerWidth;
+    lastH = window.innerHeight;
+  }, 1500);
+}
 function onResize() {
   if (!examActive) return;
   const w = window.innerWidth, h = window.innerHeight;
+  // Abaikan rotasi layar (portrait <-> landscape)
+  if (orientationChanging) { lastW = w; lastH = h; return; }
+  if (Math.abs(w - lastH) < 80 && Math.abs(h - lastW) < 80) { lastW = w; lastH = h; return; }
   // Abaikan perubahan tinggi saja (keyboard virtual di HP)
   const widthChanged = Math.abs(w - lastW) > 120;
   const heightChanged = Math.abs(h - lastH) > 120;
