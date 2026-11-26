@@ -456,9 +456,12 @@ function showConfirm(message, onYes) {
   if (cancelBtn) cancelBtn.onclick = () => { cleanup(); };
 }
 
-$('#finishBtn').addEventListener('click', () => {
-  showConfirm('Selesai mengerjakan ujian?', () => finishExam('manual'));
-});
+const finishBtn = document.getElementById('finishBtn');
+if (finishBtn) {
+  finishBtn.addEventListener('click', () => {
+    showConfirm('Selesai mengerjakan ujian?', () => finishExam('manual'));
+  });
+}
 
 const fsFinishBtn = document.getElementById('fsFinishBtn');
 if (fsFinishBtn) {
