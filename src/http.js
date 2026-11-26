@@ -110,7 +110,8 @@ async function handleApi(req, res, pathname) {
     const penalty = Number.isFinite(body.penalty) ? parseInt(body.penalty, 10) : cfg.penaltyDefault;
     const max_violations = Number.isFinite(body.max_violations) ? parseInt(body.max_violations, 10) : cfg.maxViolationsDefault;
     const duration_min = Number.isFinite(body.duration_min) ? parseInt(body.duration_min, 10) : 0;
-    const exam = db.createExam({ title, form_url, penalty, max_violations, duration_min });
+    const level = (body.level || 'Semua').toString().trim() || 'Semua';
+    const exam = db.createExam({ title, form_url, penalty, max_violations, duration_min, level });
     safeJson(res, 201, { exam });
     return;
   }

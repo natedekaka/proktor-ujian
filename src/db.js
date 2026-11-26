@@ -29,8 +29,9 @@ function migrate() {
       max_violations INTEGER NOT NULL DEFAULT 10,
       duration_min INTEGER NOT NULL DEFAULT 0,
       active INTEGER NOT NULL DEFAULT 1,
+      level TEXT NOT NULL DEFAULT 'Semua',
       created_at TEXT NOT NULL
-    );
+    );`
     CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       exam_id INTEGER NOT NULL,
@@ -56,12 +57,19 @@ function migrate() {
     CREATE INDEX IF NOT EXISTS idx_sessions_exam ON sessions(exam_id);
     CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
   `);
+  // migrasi: tambah kolom level jika belum ada
+  try {
+    const cols = db.prepare('PRAGMA table_info(exams)').all().map((c) => c.name);
+    if (!cols.includes('level')) {
+      db.exec("ALTER TABLE exams ADD COLUMN level TEXT NOT NULL DEFAULT 'Semua'");
+    }
+  } catch (e) { /* ignore */ }
 }
 
 function getDb() { if (!db) throw new Error('DB belum init'); return db; }
 
 // Exams
-function createExam({ title, form_url, penalty, max_violations, duration_min }) {
+function createExam({ title, form_url, penalty, max_violations, duration_min, level }) {
   const { randomCode, nowIso } = require('./util');
   let code;
   // ensure unique
@@ -71,10 +79,11 @@ function createExam({ title, form_url, penalty, max_violations, duration_min }) 
     if (!exists) { code = c; break; }
   }
   if (!code) throw new Error('gagal generate code');
+  const lvl = (level || 'Semua').trim() || 'Semua';
   const stmt = getDb().prepare(
-    'INSERT INTO exams (code,title,form_url,penalty,max_violations,duration_min,active,created_at) VALUES (?,?,?,?,?,?,1,?)'
+    'INSERT INTO exams (code,title,form_url,penalty,max_violations,duration_min,active,level,created_at) VALUES (?,?,?,?,?,?,1,?,?)'
   );
-  const info = stmt.run(code, title, form_url, penalty, max_violations, duration_min, nowIso());
+  const info = stmt.run(code, title, form_url, penalty, max_violations, duration_min, lvl, nowIso());
   return getExam(info.lastInsertRowid);
 }
 
@@ -90,7 +99,7 @@ function listExams() {
 }
 
 function updateExam(id, fields) {
-  const allowed = ['title', 'form_url', 'penalty', 'max_violations', 'duration_min', 'active'];
+  const allowed = ['title', 'form_url', 'penalty', 'max_violations', 'duration_min', 'active', 'level'];
   const sets = [];
   const vals = [];
   for (const k of allowed) {

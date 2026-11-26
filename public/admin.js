@@ -4,6 +4,7 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
 
 let exams = [];
+let examLevelFilter = 'Semua';
 
 async function api(path, opts = {}) {
   const res = await fetch(path, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...opts });
@@ -58,11 +59,22 @@ async function loadExams() {
 function renderExams() {
   const el = $('#examList');
   if (!exams.length) { el.innerHTML = '<p class="muted">Belum ada ujian.</p>'; return; }
+  const filtered = examLevelFilter === 'Semua' ? exams : exams.filter((e) => e.level === examLevelFilter);
   el.innerHTML = `
+    <div class="row mb" style="align-items:center;">
+      <label style="margin:0;">Filter Tingkat:</label>
+      <select id="examLevelFilter" style="width:auto;">
+        <option value="Semua"${examLevelFilter === 'Semua' ? ' selected' : ''}>Semua</option>
+        <option value="X"${examLevelFilter === 'X' ? ' selected' : ''}>Kelas X</option>
+        <option value="XI"${examLevelFilter === 'XI' ? ' selected' : ''}>Kelas XI</option>
+        <option value="XII"${examLevelFilter === 'XII' ? ' selected' : ''}>Kelas XII</option>
+      </select>
+    </div>
     <div style="overflow-x:auto;">
-    <table class="table" style="min-width:980px;">
+    <table class="table" style="min-width:1040px;">
       <thead><tr>
         <th>Kode</th>
+        <th>Tingkat</th>
         <th>Judul Ujian</th>
         <th>Link Google Form</th>
         <th>Durasi</th>
@@ -71,11 +83,12 @@ function renderExams() {
         <th>Status</th>
         <th>Aksi</th>
       </tr></thead>
-      <tbody>` + exams.map((e) => `
+      <tbody>` + filtered.map((e) => `
         <tr>
           <td><b>${e.code}</b></td>
+          <td><span class="badge">${escapeHtml(e.level || 'Semua')}</span></td>
           <td>${escapeHtml(e.title)}</td>
-          <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(e.form_url)}">${escapeHtml(e.form_url)}</td>
+          <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(e.form_url)}">${escapeHtml(e.form_url)}</td>
           <td>${e.duration_min ? e.duration_min + ' mnt' : 'Bebas'}</td>
           <td>-${e.penalty}</td>
           <td>${e.max_violations}</td>
@@ -88,6 +101,8 @@ function renderExams() {
           </td>
         </tr>
       `).join('') + `</tbody></table></div>`;
+  const filterSel = document.getElementById('examLevelFilter');
+  if (filterSel) filterSel.onchange = () => { examLevelFilter = filterSel.value; renderExams(); };
   el.querySelectorAll('[data-toggle]').forEach((b) => b.addEventListener('click', async () => {
     const id = b.dataset.toggle; const active = b.dataset.active === '1' ? 0 : 1;
     await api('/api/admin/exams/' + id, { method: 'PUT', body: JSON.stringify({ active }) });
@@ -115,6 +130,7 @@ function renderExams() {
     $('#e_duration').value = exam.duration_min;
     $('#e_penalty').value = exam.penalty;
     $('#e_maxv').value = exam.max_violations;
+    $('#e_level').value = exam.level || 'Semua';
     $('#e_active').value = exam.active ? '1' : '0';
     $('#editMsg').textContent = '';
     $('#editModal').classList.remove('hidden');
@@ -179,6 +195,7 @@ $('#createBtn').addEventListener('click', async () => {
         duration_min: parseInt($('#c_duration').value || '0', 10),
         penalty: parseInt($('#c_penalty').value || '5', 10),
         max_violations: parseInt($('#c_maxv').value || '10', 10),
+        level: $('#c_level').value,
       }),
     });
     $('#createMsg').textContent = 'Ujian dibuat. Kode: ' + exam.exam.code;
@@ -208,6 +225,7 @@ $('#saveEditBtn').addEventListener('click', async () => {
         duration_min: parseInt($('#e_duration').value || '0', 10),
         penalty: parseInt($('#e_penalty').value || '5', 10),
         max_violations: parseInt($('#e_maxv').value || '10', 10),
+        level: $('#e_level').value,
         active: parseInt($('#e_active').value, 10),
       }),
     });
