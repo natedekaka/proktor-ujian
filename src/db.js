@@ -31,7 +31,7 @@ function migrate() {
       active INTEGER NOT NULL DEFAULT 1,
       level TEXT NOT NULL DEFAULT 'Semua',
       created_at TEXT NOT NULL
-    );`
+    );
     CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       exam_id INTEGER NOT NULL,
