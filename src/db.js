@@ -64,6 +64,12 @@ function migrate() {
       db.exec("ALTER TABLE exams ADD COLUMN level TEXT NOT NULL DEFAULT 'Semua'");
     }
   } catch (e) { /* ignore */ }
+  // backfill level dari judul untuk data lama
+  try {
+    db.exec("UPDATE exams SET level='XII' WHERE level='Semua' AND title LIKE 'XII %'");
+    db.exec("UPDATE exams SET level='XI' WHERE level='Semua' AND title LIKE 'XI %' AND title NOT LIKE 'XII %'");
+    db.exec("UPDATE exams SET level='X' WHERE level='Semua' AND title LIKE 'X %' AND title NOT LIKE 'XI %' AND title NOT LIKE 'XII %'");
+  } catch (e) { /* ignore */ }
 }
 
 function getDb() { if (!db) throw new Error('DB belum init'); return db; }
@@ -79,7 +85,13 @@ function createExam({ title, form_url, penalty, max_violations, duration_min, le
     if (!exists) { code = c; break; }
   }
   if (!code) throw new Error('gagal generate code');
-  const lvl = (level || 'Semua').trim() || 'Semua';
+  let lvl = (level || 'Semua').trim() || 'Semua';
+  if (lvl === 'Semua') {
+    const t = (title || '').trim();
+    if (/^XII(\s|-)/i.test(t)) lvl = 'XII';
+    else if (/^XI(\s|-)/i.test(t)) lvl = 'XI';
+    else if (/^X(\s|-)/i.test(t)) lvl = 'X';
+  }
   const stmt = getDb().prepare(
     'INSERT INTO exams (code,title,form_url,penalty,max_violations,duration_min,active,level,created_at) VALUES (?,?,?,?,?,?,1,?,?)'
   );

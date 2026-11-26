@@ -130,6 +130,16 @@ async function handleApi(req, res, pathname) {
     if (method === 'PUT') {
       if (!auth.requireAdmin(req, res)) return;
       let body; try { body = JSON.parse(await readBody(req)); } catch { safeJson(res, 400, { error: 'bad json' }); return; }
+      if (body.level !== undefined) {
+        let lvl = (body.level || 'Semua').toString().trim() || 'Semua';
+        const t = (body.title || '').trim();
+        if (lvl === 'Semua' && t) {
+          if (/^XII(\\s|-)/i.test(t)) lvl = 'XII';
+          else if (/^XI(\\s|-)/i.test(t)) lvl = 'XI';
+          else if (/^X(\\s|-)/i.test(t)) lvl = 'X';
+        }
+        body.level = lvl;
+      }
       const exam = db.updateExam(id, body);
       safeJson(res, 200, { exam });
       return;
