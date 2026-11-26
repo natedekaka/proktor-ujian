@@ -229,10 +229,13 @@ function attachDetectors() {
   window.addEventListener('storage', onStorageChange);
 
   const isTouch = isMobileDevice();
-  // resize detection (desktop only; mobile keyboard triggers resize)
-  if (!isTouch) window.addEventListener('resize', onResize);
+  // resize detection (mobile included for orientation/keyboard handling)
+  window.addEventListener('resize', onResize);
   // orientation change: ignore resize during rotation
   window.addEventListener('orientationchange', onOrientationChange);
+  if (window.screen && window.screen.orientation) {
+    window.screen.orientation.addEventListener('change', onOrientationChange);
+  }
 
   // activity tracking
   ['mousemove','mousedown','keydown','touchstart','scroll'].forEach((ev) => document.addEventListener(ev, resetActivity, true));
@@ -253,9 +256,11 @@ function detachDetectors() {
   document.removeEventListener('cut', onCopyPaste);
   document.removeEventListener('keydown', onKeyDown);
   window.removeEventListener('storage', onStorageChange);
-  const isTouch = isMobileDevice();
-  if (!isTouch) window.removeEventListener('resize', onResize);
+  window.removeEventListener('resize', onResize);
   window.removeEventListener('orientationchange', onOrientationChange);
+  if (window.screen && window.screen.orientation) {
+    window.screen.orientation.removeEventListener('change', onOrientationChange);
+  }
   ['mousemove','mousedown','keydown','touchstart','scroll'].forEach((ev) => document.removeEventListener(ev, resetActivity, true));
   if (devtoolsInterval) { clearInterval(devtoolsInterval); devtoolsInterval = null; }
   if (idleInterval) { clearInterval(idleInterval); idleInterval = null; }
