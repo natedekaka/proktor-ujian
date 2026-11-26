@@ -58,22 +58,36 @@ async function loadExams() {
 function renderExams() {
   const el = $('#examList');
   if (!exams.length) { el.innerHTML = '<p class="muted">Belum ada ujian.</p>'; return; }
-  el.innerHTML = exams.map((e) => `
-    <div class="exam-row">
-      <div>
-        <strong>${escapeHtml(e.title)}</strong>
-        <div class="muted">Kode: <b>${e.code}</b> · ${e.duration_min ? e.duration_min + ' menit' : 'tanpa batas'} · -${e.penalty}/pelanggaran · maks ${e.max_violations}</div>
-        <div class="muted" style="font-size:12px;">${escapeHtml(e.form_url)}</div>
-      </div>
-      <div class="row" style="align-items:center;">
-        <span class="badge ${e.active ? 'success' : 'danger'}">${e.active ? 'Aktif' : 'Nonaktif'}</span>
-        <button class="btn secondary" data-toggle="${e.id}" data-active="${e.active}">${e.active ? 'Nonaktifkan' : 'Aktifkan'}</button>
-        <button class="btn secondary" data-edit="${e.id}">Edit</button>
-        <button class="btn secondary" data-view="${e.id}">Hasil</button>
-        <button class="btn danger" data-del="${e.id}">Hapus</button>
-      </div>
-    </div>
-  `).join('');
+  el.innerHTML = `
+    <div style="overflow-x:auto;">
+    <table class="table" style="min-width:980px;">
+      <thead><tr>
+        <th>Kode</th>
+        <th>Judul Ujian</th>
+        <th>Link Google Form</th>
+        <th>Durasi</th>
+        <th>Penalti</th>
+        <th>Maks</th>
+        <th>Status</th>
+        <th>Aksi</th>
+      </tr></thead>
+      <tbody>` + exams.map((e) => `
+        <tr>
+          <td><b>${e.code}</b></td>
+          <td>${escapeHtml(e.title)}</td>
+          <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(e.form_url)}">${escapeHtml(e.form_url)}</td>
+          <td>${e.duration_min ? e.duration_min + ' mnt' : 'Bebas'}</td>
+          <td>-${e.penalty}</td>
+          <td>${e.max_violations}</td>
+          <td><span class="badge ${e.active ? 'success' : 'danger'}">${e.active ? 'Aktif' : 'Nonaktif'}</span></td>
+          <td style="white-space:nowrap;">
+            <button class="btn secondary" style="padding:4px 8px;font-size:12px;" data-toggle="${e.id}" data-active="${e.active}">${e.active ? 'Nonaktifkan' : 'Aktifkan'}</button>
+            <button class="btn secondary" style="padding:4px 8px;font-size:12px;" data-edit="${e.id}">Edit</button>
+            <button class="btn secondary" style="padding:4px 8px;font-size:12px;" data-view="${e.id}">Hasil</button>
+            <button class="btn danger" style="padding:4px 8px;font-size:12px;" data-del="${e.id}">Hapus</button>
+          </td>
+        </tr>
+      `).join('') + `</tbody></table></div>`;
   el.querySelectorAll('[data-toggle]').forEach((b) => b.addEventListener('click', async () => {
     const id = b.dataset.toggle; const active = b.dataset.active === '1' ? 0 : 1;
     await api('/api/admin/exams/' + id, { method: 'PUT', body: JSON.stringify({ active }) });
