@@ -35,7 +35,7 @@ function api(path, opts = {}) {
 
 function embedUrl(url) {
   try {
-    const u = new URL(url);
+    let u = new URL(String(url).replace(/\/preview(\?|$)/, '/viewform$1'));
     if (!u.searchParams.has('embedded')) u.searchParams.set('embedded', 'true');
     return u.toString();
   } catch { return url; }

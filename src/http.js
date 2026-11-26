@@ -105,7 +105,7 @@ async function handleApi(req, res, pathname) {
     if (!auth.requireAdmin(req, res)) return;
     let body; try { body = JSON.parse(await readBody(req)); } catch { safeJson(res, 400, { error: 'bad json' }); return; }
     const title = (body.title || '').trim();
-    const form_url = (body.form_url || '').trim();
+    let form_url = (body.form_url || '').trim().replace(/\/preview(\\?|$)/, '/viewform$1');
     if (!title || !form_url) { safeJson(res, 400, { error: 'title dan form_url wajib' }); return; }
     const penalty = Number.isFinite(body.penalty) ? parseInt(body.penalty, 10) : cfg.penaltyDefault;
     const max_violations = Number.isFinite(body.max_violations) ? parseInt(body.max_violations, 10) : cfg.maxViolationsDefault;
@@ -130,6 +130,7 @@ async function handleApi(req, res, pathname) {
     if (method === 'PUT') {
       if (!auth.requireAdmin(req, res)) return;
       let body; try { body = JSON.parse(await readBody(req)); } catch { safeJson(res, 400, { error: 'bad json' }); return; }
+      if (body.form_url) body.form_url = String(body.form_url).trim().replace(/\/preview(\?|$)/, '/viewform$1');
       if (body.level !== undefined) {
         let lvl = (body.level || 'Semua').toString().trim() || 'Semua';
         const t = (body.title || '').trim();
